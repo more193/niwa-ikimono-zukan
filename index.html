@@ -1,50 +1,256 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2f6b4f"><meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css">
-<title>にわの生きもの図鑑</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2f6b4f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>にわの生きもの図鑑</title>
 </head>
+
 <body>
-<header class="topbar"><div class="logo">🌿</div><div><p class="eyebrow">MY GARDEN FIELD NOTES</p><h1>にわの生きもの図鑑</h1></div><button id="settingsBtn" class="icon">⚙️</button></header>
+<header class="topbar">
+  <div class="logo">🌿</div>
+  <div>
+    <p class="eyebrow">MY GARDEN FIELD NOTES</p>
+    <h1>にわの生きもの図鑑</h1>
+  </div>
+  <button id="settingsBtn" class="icon" type="button">⚙️</button>
+</header>
+
 <main>
-<section id="settingsPanel" class="panel" hidden>
-<div class="heading"><div><p class="eyebrow">SETUP</p><h2>接続設定</h2></div><button id="closeSettingsBtn" class="textbtn">閉じる</button></div>
-<p class="muted">家族で記録を共有するための接続設定です。SupabaseのProject URLと公開用キーを入力します。</p>
-<label>Supabase Project URL<input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co"></label>
-<label>Supabase anon / publishable key<input id="supabaseKey" type="password" placeholder="公開用キー"></label>
-<button id="saveSettingsBtn" class="btn primary full">設定を保存して接続</button><p id="settingsMsg" class="msg"></p>
-<p class="warning">秘密鍵やOpenAI APIキーはここに入力しないでください。AI用の鍵はサーバー側に設定します。</p>
-</section>
-<section id="authPanel" class="panel" hidden>
-<h2>観察ノートへログイン</h2><p class="muted">メールアドレスで登録すると、パソコンや家族の端末からも記録を共有できます。</p>
-<label>メールアドレス<input id="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
-<label>パスワード<input id="password" type="password" autocomplete="current-password" placeholder="6文字以上"></label>
-<div class="row"><button id="signInBtn" class="btn secondary">ログイン</button><button id="signUpBtn" class="btn primary">新規登録</button></div><p id="authMsg" class="msg"></p>
-</section>
-<section id="appPanel" hidden>
-<section class="hero"><p class="eyebrow light">YOUR LITTLE ECOSYSTEM</p><h2>庭の小さな発見を、<br>未来に残そう。</h2><p>写真・気づき・季節の変化を記録しよう。</p><span class="butterfly">🦋</span></section>
-<section class="stats"><div><span>観察記録</span><strong id="recordCount">0</strong><small>件</small></div><div><span>名前の種類数</span><strong id="speciesCount">0</strong><small>種類</small></div><div><span>今月の観察</span><strong id="monthCount">0</strong><small>件</small></div></section>
-<div class="heading"><div><p class="eyebrow">FIELD JOURNAL</p><h2>新しい観察を記録</h2></div></div>
-<form id="recordForm" class="panel">
-<label class="photoPick" for="photoInput"><span id="photoPreview" class="preview">📷</span><span><b>生きものの写真を追加</b><small>カメラで撮影、または写真を選択</small></span><span class="plus">＋</span></label>
-<input id="photoInput" type="file" accept="image/*" hidden>
-<button type="button" id="identifyBtn" class="btn ai full" disabled>✨ AIに種類を推定してもらう</button><p id="aiMsg" class="msg"></p>
-<div id="candidateBox" class="candidate" hidden><b>AIの推定（必ず確認してください）</b><div id="candidateText"></div><button type="button" id="useCandidateBtn" class="btn secondary">候補を記録欄に反映</button></div>
-<div class="cols"><label>名前（未確定でもOK）<input id="nameInput" placeholder="例：ハエトリグモの仲間" required></label><label>分類<select id="categoryInput"><option>未分類</option><option>昆虫</option><option>クモ</option><option>鳥</option><option>哺乳類</option><option>両生類</option><option>爬虫類</option><option>魚</option><option>植物</option><option>菌類</option><option>その他</option></select></label></div>
-<div class="cols"><label>観察日<input id="dateInput" type="date" required></label><label>庭の場所<input id="placeInput" placeholder="例：池のそば、花壇"></label></div>
-<label>気づいたこと<textarea id="notesInput" rows="3" placeholder="色、大きさ、行動、天気など"></textarea></label>
-<label class="check"><input id="confirmedInput" type="checkbox"> 自分で種類を確認した</label>
-<button type="submit" class="btn primary full">観察記録を保存</button><p id="saveMsg" class="msg"></p>
-</form>
-<div class="heading"><div><p class="eyebrow">YOUR COLLECTION</p><h2>観察アルバム</h2></div><button id="refreshBtn" class="textbtn">更新 ↻</button></div>
-<div class="filters"><input id="searchInput" type="search" placeholder="名前・場所・メモで検索"><select id="filterCategory"><option value="">すべての分類</option><option>未分類</option><option>昆虫</option><option>クモ</option><option>鳥</option><option>哺乳類</option><option>両生類</option><option>爬虫類</option><option>魚</option><option>植物</option><option>菌類</option><option>その他</option></select></div>
-<div id="recordsGrid" class="grid"></div><div id="emptyState" class="empty"><span>🌱</span><h3>最初の発見を記録しよう</h3><p>庭で見つけた生きものを撮影して、<br>自分だけの図鑑を育てていこう。</p></div>
-<section class="panel family"><p class="eyebrow">FAMILY GARDEN</p><h2>家族と記録を共有</h2><p class="muted">家族グループを作成し、招待コードを家族に共有してください。</p><button id="createFamilyBtn" class="btn secondary full">家族グループを作成</button><label>招待コードで参加<input id="inviteCode" placeholder="家族から受け取ったコード"></label><button id="joinFamilyBtn" class="btn secondary full">招待コードで参加</button><p id="familyMsg" class="msg"></p><div id="familyInfo" class="familyInfo"></div></section>
-<button id="signOutBtn" class="textbtn signout">ログアウト</button>
-</section>
+  <!-- 接続設定 -->
+  <section id="settingsPanel" class="panel" hidden>
+    <div class="heading">
+      <div>
+        <p class="eyebrow">SETUP</p>
+        <h2>接続設定</h2>
+      </div>
+      <button id="closeSettingsBtn" class="textbtn" type="button">閉じる</button>
+    </div>
+
+    <p class="muted">家族で記録を共有するための接続設定です。SupabaseのProject URLと公開用キーを入力します。</p>
+
+    <label>
+      Supabase Project URL
+      <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co">
+    </label>
+
+    <label>
+      Supabase anon / publishable key
+      <input id="supabaseKey" type="password" placeholder="公開用キー">
+    </label>
+
+    <button id="saveSettingsBtn" class="btn primary full" type="button">設定を保存して接続</button>
+    <p id="settingsMsg" class="msg"></p>
+
+    <p class="warning">秘密鍵やOpenAI APIキーはここに入力しないでください。AI用の鍵はサーバー側に設定します。</p>
+  </section>
+
+  <!-- ログイン -->
+  <section id="authPanel" class="panel" hidden>
+    <h2>観察ノートへログイン</h2>
+    <p class="muted">メールアドレスで登録すると、パソコンや家族の端末からも記録を共有できます。</p>
+
+    <label>
+      メールアドレス
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+    </label>
+
+    <label>
+      パスワード
+      <input id="password" type="password" autocomplete="current-password" placeholder="6文字以上">
+    </label>
+
+    <div class="row">
+      <button id="signInBtn" class="btn secondary" type="button">ログイン</button>
+      <button id="signUpBtn" class="btn primary" type="button">新規登録</button>
+    </div>
+
+    <p id="authMsg" class="msg"></p>
+  </section>
+
+  <!-- アプリ本体 -->
+  <section id="appPanel" hidden>
+    <section class="hero">
+      <p class="eyebrow light">YOUR LITTLE ECOSYSTEM</p>
+      <h2>庭の小さな発見を、<br>未来に残そう。</h2>
+      <p>写真・気づき・季節の変化を記録しよう。</p>
+      <span class="butterfly">🦋</span>
+    </section>
+
+    <!-- 統計 -->
+    <section class="stats">
+      <div>
+        <span>観察記録</span>
+        <strong id="recordCount">0</strong>
+        <small>件</small>
+      </div>
+      <div>
+        <span>名前の種類数</span>
+        <strong id="speciesCount">0</strong>
+        <small>種類</small>
+      </div>
+      <div>
+        <span>今月の観察</span>
+        <strong id="monthCount">0</strong>
+        <small>件</small>
+      </div>
+    </section>
+
+    <!-- 新規記録 -->
+    <div class="heading">
+      <div>
+        <p class="eyebrow">FIELD JOURNAL</p>
+        <h2>新しい観察を記録</h2>
+      </div>
+    </div>
+
+    <form id="recordForm" class="panel">
+      <label class="photoPick" for="photoInput">
+        <span id="photoPreview" class="preview">📷</span>
+        <span>
+          <b>生きものの写真を追加</b>
+          <small>カメラで撮影、または写真を選択</small>
+        </span>
+        <span class="plus">＋</span>
+      </label>
+
+      <input id="photoInput" type="file" accept="image/*" hidden>
+
+      <button type="button" id="identifyBtn" class="btn ai full" disabled>
+        ✨ AIに種類を推定してもらう
+      </button>
+      <p id="aiMsg" class="msg"></p>
+
+      <div id="candidateBox" class="candidate" hidden>
+        <b>AIの推定（必ず確認してください）</b>
+        <div id="candidateText"></div>
+        <button type="button" id="useCandidateBtn" class="btn secondary">
+          候補を記録欄に反映
+        </button>
+      </div>
+
+      <div class="cols">
+        <label>
+          名前（未確定でもOK）
+          <input id="nameInput" placeholder="例：ハエトリグモの仲間" required>
+        </label>
+
+        <label>
+          分類
+          <select id="categoryInput">
+            <option>未分類</option>
+            <option>昆虫</option>
+            <option>クモ</option>
+            <option>鳥</option>
+            <option>哺乳類</option>
+            <option>両生類</option>
+            <option>爬虫類</option>
+            <option>魚</option>
+            <option>植物</option>
+            <option>菌類</option>
+            <option>その他</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="cols">
+        <label>
+          観察日時
+          <input id="dateInput" type="datetime-local" required>
+        </label>
+
+        <label>
+          庭の場所
+          <input id="placeInput" placeholder="例：池のそば、花壇">
+        </label>
+      </div>
+
+      <label>
+        気づいたこと
+        <textarea id="notesInput" rows="3" placeholder="色、大きさ、行動、天気など"></textarea>
+      </label>
+
+      <label class="check">
+        <input id="confirmedInput" type="checkbox">
+        自分で種類を確認した
+      </label>
+
+      <button type="submit" class="btn primary full">観察記録を保存</button>
+      <p id="saveMsg" class="msg"></p>
+    </form>
+
+    <!-- 観察アルバム -->
+    <div class="heading">
+      <div>
+        <p class="eyebrow">YOUR COLLECTION</p>
+        <h2>観察アルバム</h2>
+      </div>
+      <button id="refreshBtn" class="textbtn" type="button">更新 ↻</button>
+    </div>
+
+    <div class="filters">
+      <input id="searchInput" type="search" placeholder="名前・場所・メモで検索">
+
+      <select id="filterCategory">
+        <option value="">すべての分類</option>
+        <option>未分類</option>
+        <option>昆虫</option>
+        <option>クモ</option>
+        <option>鳥</option>
+        <option>哺乳類</option>
+        <option>両生類</option>
+        <option>爬虫類</option>
+        <option>魚</option>
+        <option>植物</option>
+        <option>菌類</option>
+        <option>その他</option>
+      </select>
+    </div>
+
+    <div id="recordsGrid" class="grid"></div>
+
+    <div id="emptyState" class="empty">
+      <span>🌱</span>
+      <h3>最初の発見を記録しよう</h3>
+      <p>庭で見つけた生きものを撮影して、<br>自分だけの図鑑を育てていこう。</p>
+    </div>
+
+    <!-- 家族共有 -->
+    <section class="panel family">
+      <p class="eyebrow">FAMILY GARDEN</p>
+      <h2>家族と記録を共有</h2>
+      <p class="muted">家族グループを作成し、招待コードを家族に共有してください。</p>
+
+      <button id="createFamilyBtn" class="btn secondary full" type="button">
+        家族グループを作成
+      </button>
+
+      <label>
+        招待コードで参加
+        <input id="inviteCode" placeholder="家族から受け取ったコード">
+      </label>
+
+      <button id="joinFamilyBtn" class="btn secondary full" type="button">
+        招待コードで参加
+      </button>
+
+      <p id="familyMsg" class="msg"></p>
+      <div id="familyInfo" class="familyInfo"></div>
+    </section>
+
+    <button id="signOutBtn" class="textbtn signout" type="button">ログアウト</button>
+  </section>
 </main>
-<footer><span>🌿 にわの生きもの図鑑</span><span>観察は、発見から。</span></footer>
+
+<footer>
+  <span>🌿 にわの生きもの図鑑</span>
+  <span>観察は、発見から。</span>
+</footer>
+
 <script type="module" src="app.js"></script>
-</body></html>
+</body>
+</html>
