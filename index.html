@@ -21,7 +21,6 @@
 </header>
 
 <main>
-  <!-- 接続設定 -->
   <section id="settingsPanel" class="panel" hidden>
     <div class="heading">
       <div>
@@ -46,10 +45,9 @@
     <button id="saveSettingsBtn" class="btn primary full" type="button">設定を保存して接続</button>
     <p id="settingsMsg" class="msg"></p>
 
-    <p class="warning">秘密鍵やOpenAI APIキーはここに入力しないでください。AI用の鍵はサーバー側に設定します。</p>
+    <p class="warning">秘密鍵はここに入力しないでください。</p>
   </section>
 
-  <!-- ログイン -->
   <section id="authPanel" class="panel" hidden>
     <h2>観察ノートへログイン</h2>
     <p class="muted">メールアドレスで登録すると、パソコンや家族の端末からも記録を共有できます。</p>
@@ -72,7 +70,6 @@
     <p id="authMsg" class="msg"></p>
   </section>
 
-  <!-- アプリ本体 -->
   <section id="appPanel" hidden>
     <section class="hero">
       <p class="eyebrow light">YOUR LITTLE ECOSYSTEM</p>
@@ -81,7 +78,6 @@
       <span class="butterfly">🦋</span>
     </section>
 
-    <!-- 統計 -->
     <section class="stats">
       <div>
         <span>観察記録</span>
@@ -100,7 +96,6 @@
       </div>
     </section>
 
-    <!-- 新規記録 -->
     <div class="heading">
       <div>
         <p class="eyebrow">FIELD JOURNAL</p>
@@ -119,19 +114,6 @@
       </label>
 
       <input id="photoInput" type="file" accept="image/*" hidden>
-
-      <button type="button" id="identifyBtn" class="btn ai full" disabled>
-        ✨ AIに種類を推定してもらう
-      </button>
-      <p id="aiMsg" class="msg"></p>
-
-      <div id="candidateBox" class="candidate" hidden>
-        <b>AIの推定（必ず確認してください）</b>
-        <div id="candidateText"></div>
-        <button type="button" id="useCandidateBtn" class="btn secondary">
-          候補を記録欄に反映
-        </button>
-      </div>
 
       <div class="cols">
         <label>
@@ -183,7 +165,6 @@
       <p id="saveMsg" class="msg"></p>
     </form>
 
-    <!-- 観察アルバム -->
     <div class="heading">
       <div>
         <p class="eyebrow">YOUR COLLECTION</p>
@@ -219,7 +200,6 @@
       <p>庭で見つけた生きものを撮影して、<br>自分だけの図鑑を育てていこう。</p>
     </div>
 
-    <!-- 家族共有 -->
     <section class="panel family">
       <p class="eyebrow">FAMILY GARDEN</p>
       <h2>家族と記録を共有</h2>
