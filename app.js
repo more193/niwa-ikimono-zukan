@@ -11,11 +11,95 @@ let photoData = "";
 let records = [];
 let candidate = null;
 
-const now = new Date();
-const dateString =
-  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+function localDateTimeValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
 
-$("dateInput").value = dateString;
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function localDateValue(date = new Date()) {
+  return localDateTimeValue(date).slice(0, 10);
+}
+
+function dateTimeToISO(value) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("観察日時を正しく入力してください。");
+  }
+
+  return date.toISOString();
+}
+
+function recordDateTime(record) {
+  if (record.observed_at) {
+    const date = new Date(record.observed_at);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  if (record.observed_on) {
+    const date = new Date(`${record.observed_on}T00:00:00`);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return null;
+}
+
+function formatDateTime(record) {
+  const date = recordDateTime(record);
+
+  if (!date) return "日時未登録";
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
+}
+
+function dateTimeForInput(record) {
+  const date = recordDateTime(record);
+
+  if (!date) return "";
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  const values = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+}
+
+$("dateInput").value = localDateTimeValue();
 
 function msg(id, text, err = false) {
   $(id).textContent = text;
@@ -94,8 +178,8 @@ $("saveSettingsBtn").onclick = async () => {
     msg("settingsMsg", "設定を保存しました。ログイン画面を開きます。");
 
     setTimeout(() => showApp(!!user), 500);
-  } catch (e) {
-    msg("settingsMsg", `接続エラー：${e.message}`, true);
+  } catch (error) {
+    msg("settingsMsg", `接続エラー：${error.message}`, true);
   }
 };
 
@@ -105,7 +189,9 @@ async function init() {
     return;
   }
 
-  const { data: { session } } = await sb.auth.getSession();
+  const {
+    data: { session }
+  } = await sb.auth.getSession();
 
   user = session?.user || null;
   showApp(!!user);
@@ -262,10 +348,7 @@ $("identifyBtn").onclick = async () => {
 
     $("candidateBox").hidden = false;
 
-    msg(
-      "aiMsg",
-      "候補を確認してから記録欄に反映してください。"
-    );
+    msg("aiMsg", "候補を確認してから記録欄に反映してください。");
   } catch (error) {
     msg(
       "aiMsg",
@@ -323,6 +406,12 @@ $("recordForm").onsubmit = async event => {
     );
   }
 
+  const observedAt = $("dateInput").value;
+
+  if (!observedAt) {
+    return msg("saveMsg", "観察日時を入力してください。", true);
+  }
+
   msg("saveMsg", "保存しています…");
 
   try {
@@ -348,7 +437,8 @@ $("recordForm").onsubmit = async event => {
       user_id: user.id,
       name,
       category: $("categoryInput").value,
-      observed_on: $("dateInput").value,
+      observed_on: observedAt.slice(0, 10),
+      observed_at: dateTimeToISO(observedAt),
       place: $("placeInput").value.trim(),
       notes: $("notesInput").value.trim(),
       confirmed: $("confirmedInput").checked,
@@ -361,7 +451,7 @@ $("recordForm").onsubmit = async event => {
     if (error) throw error;
 
     $("recordForm").reset();
-    $("dateInput").value = dateString;
+    $("dateInput").value = localDateTimeValue();
 
     photoFile = null;
     photoData = "";
@@ -371,7 +461,7 @@ $("recordForm").onsubmit = async event => {
     $("identifyBtn").disabled = true;
     $("candidateBox").hidden = true;
 
-    msg("saveMsg", "記録を保存しました！");
+    msg("saveMsg", "観察記録を保存しました！");
 
     await loadRecords();
   } catch (error) {
@@ -462,6 +552,7 @@ async function loadRecords() {
     .from("observations")
     .select("*")
     .eq("family_id", family.id)
+    .order("observed_at", { ascending: false, nullsFirst: false })
     .order("observed_on", { ascending: false })
     .limit(300);
 
@@ -505,12 +596,30 @@ function renderRecords() {
   });
 
   $("recordCount").textContent = records.length;
+
   $("speciesCount").textContent =
     new Set(records.map(record => record.name)).size;
 
-  $("monthCount").textContent = records.filter(record =>
-    (record.observed_on || "").startsWith(dateString.slice(0, 7))
-  ).length;
+  const currentMonth = localDateValue().slice(0, 7);
+
+  $("monthCount").textContent = records.filter(record => {
+    const date = recordDateTime(record);
+    if (!date) return false;
+
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit"
+    }).formatToParts(date);
+
+    const values = {};
+
+    for (const part of parts) {
+      if (part.type !== "literal") values[part.type] = part.value;
+    }
+
+    return `${values.year}-${values.month}` === currentMonth;
+  }).length;
 
   $("recordsGrid").replaceChildren();
   $("emptyState").hidden = shown.length > 0;
@@ -541,7 +650,7 @@ function renderRecords() {
     card.querySelector("h3").textContent = record.name;
 
     card.querySelectorAll(".meta")[0].textContent =
-      `📅 ${record.observed_on || "日付なし"} · ${record.confirmed ? "種類確認済み" : "未確認"}`;
+      `🕒 ${formatDateTime(record)} · ${record.confirmed ? "種類確認済み" : "未確認"}`;
 
     card.querySelectorAll(".meta")[1].textContent =
       record.place ? `📍 ${record.place}` : "場所未記入";
@@ -581,7 +690,8 @@ async function deleteRecord(id) {
   const { error } = await sb
     .from("observations")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("family_id", family.id);
 
   if (error) {
     alert(`削除できません：${error.message}`);
@@ -590,11 +700,6 @@ async function deleteRecord(id) {
   }
 }
 
-/*
- * 観察記録の編集
- * 名前・分類・観察日・場所・備考・確認状態を変更できます。
- * キャンセルした場合は保存しません。
- */
 async function editRecord(id) {
   const record = records.find(item => String(item.id) === String(id));
 
@@ -614,27 +719,29 @@ async function editRecord(id) {
   );
   if (category === null) return;
 
-  const observedOn = prompt(
-    "観察日（YYYY-MM-DD形式）",
-    record.observed_on || ""
+  const observedAt = prompt(
+    "観察日時（YYYY-MM-DDTHH:mm形式）",
+    dateTimeForInput(record)
   );
-  if (observedOn === null) return;
+  if (observedAt === null) return;
 
-  if (observedOn && !/^\d{4}-\d{2}-\d{2}$/.test(observedOn)) {
-    alert("観察日は YYYY-MM-DD の形式で入力してください。");
+  if (
+    observedAt &&
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(observedAt)
+  ) {
+    alert("観察日時は YYYY-MM-DDTHH:mm の形式で入力してください。");
     return;
   }
 
-  const place = prompt(
-    "観察場所",
-    record.place || ""
-  );
+  if (observedAt && Number.isNaN(new Date(observedAt).getTime())) {
+    alert("観察日時が正しくありません。");
+    return;
+  }
+
+  const place = prompt("観察場所", record.place || "");
   if (place === null) return;
 
-  const notes = prompt(
-    "備考・コメント",
-    record.notes || ""
-  );
+  const notes = prompt("備考・コメント", record.notes || "");
   if (notes === null) return;
 
   const confirmed = confirm(
@@ -644,7 +751,8 @@ async function editRecord(id) {
   const updated = {
     name: name.trim(),
     category: category.trim() || "その他",
-    observed_on: observedOn || null,
+    observed_on: observedAt ? observedAt.slice(0, 10) : null,
+    observed_at: observedAt ? dateTimeToISO(observedAt) : null,
     place: place.trim(),
     notes: notes.trim(),
     confirmed
@@ -654,7 +762,7 @@ async function editRecord(id) {
     "次の内容で更新しますか？\n\n" +
     `名前：${updated.name}\n` +
     `分類：${updated.category}\n` +
-    `観察日：${updated.observed_on || "未入力"}\n` +
+    `観察日時：${observedAt || "未入力"}\n` +
     `観察場所：${updated.place || "未入力"}\n` +
     `備考：${updated.notes || "未入力"}\n` +
     `種類確認：${updated.confirmed ? "確認済み" : "未確認"}`
