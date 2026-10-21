@@ -9,7 +9,6 @@ let family = null;
 let photoFile = null;
 let photoData = "";
 let records = [];
-let candidate = null;
 
 function localDateTimeValue(date = new Date()) {
   const year = date.getFullYear();
@@ -298,97 +297,17 @@ $("photoInput").onchange = async event => {
 
   if (!photoFile) return;
 
-  $("identifyBtn").disabled = true;
-
   try {
     photoData = await resizeImage(photoFile);
 
     $("photoPreview").innerHTML =
       `<img alt="選択した写真" src="${photoData}">`;
-
-    $("identifyBtn").disabled = false;
-
-    msg(
-      "aiMsg",
-      "写真を追加しました。名前を入力するか、AI推定を試せます。"
-    );
   } catch (error) {
-    msg("aiMsg", error.message, true);
+    photoFile = null;
+    photoData = "";
+    $("photoPreview").textContent = "📷";
+    msg("saveMsg", error.message, true);
   }
-};
-
-$("identifyBtn").onclick = async () => {
-  if (!sb || !user) {
-    return msg(
-      "aiMsg",
-      "AI推定にはログインとサーバー側のAI設定が必要です。",
-      true
-    );
-  }
-
-  $("identifyBtn").disabled = true;
-  msg("aiMsg", "写真を見て候補を考えています…");
-
-  try {
-    const { data, error } = await sb.functions.invoke("identify", {
-      body: { image: photoData }
-    });
-
-    if (error) throw error;
-
-    candidate = data;
-    $("candidateText").replaceChildren();
-
-    const messages = [
-      `候補：${data.name || "特定できませんでした"}`,
-      `分類：${data.category || "未分類"} ／ 確かさ：${data.confidence || "不明"}`,
-      data.reason || "写真だけでは断定できない場合があります。",
-      data.alternatives?.length
-        ? `ほかの候補：${data.alternatives.join("、")}`
-        : ""
-    ];
-
-    for (const text of messages) {
-      if (!text) continue;
-
-      const paragraph = document.createElement("p");
-      paragraph.textContent = text;
-      $("candidateText").append(paragraph);
-    }
-
-    $("candidateBox").hidden = false;
-
-    msg("aiMsg", "候補を確認してから記録欄に反映してください。");
-  } catch (error) {
-    msg(
-      "aiMsg",
-      `AI推定に失敗しました：${error.message || "設定を確認してください"}`,
-      true
-    );
-  } finally {
-    $("identifyBtn").disabled = false;
-  }
-};
-
-$("useCandidateBtn").onclick = () => {
-  if (!candidate) return;
-
-  $("nameInput").value = candidate.name || "";
-
-  const category = candidate.category || "未分類";
-
-  $("categoryInput").value = [
-    ...$("categoryInput").options
-  ].some(option => option.value === category || option.text === category)
-    ? category
-    : "その他";
-
-  $("confirmedInput").checked = false;
-
-  msg(
-    "saveMsg",
-    "AI候補を入力しました。自分で確認したらチェックを入れて保存してください。"
-  );
 };
 
 $("recordForm").onsubmit = async event => {
@@ -422,6 +341,8 @@ $("recordForm").onsubmit = async event => {
     return msg("saveMsg", "観察日時を入力してください。", true);
   }
 
+  const saveButton = $("recordForm").querySelector('button[type="submit"]');
+  saveButton.disabled = true;
   msg("saveMsg", "保存しています…");
 
   try {
@@ -452,8 +373,7 @@ $("recordForm").onsubmit = async event => {
       place: $("placeInput").value.trim(),
       notes: $("notesInput").value.trim(),
       confirmed: $("confirmedInput").checked,
-      image_path,
-      ai_guess: candidate?.name || null
+      image_path
     };
 
     const { error } = await sb.from("observations").insert(row);
@@ -465,17 +385,15 @@ $("recordForm").onsubmit = async event => {
 
     photoFile = null;
     photoData = "";
-    candidate = null;
 
     $("photoPreview").textContent = "📷";
-    $("identifyBtn").disabled = true;
-    $("candidateBox").hidden = true;
 
     msg("saveMsg", "観察記録を保存しました！");
-
     await loadRecords();
   } catch (error) {
     msg("saveMsg", `保存できませんでした：${error.message}`, true);
+  } finally {
+    saveButton.disabled = false;
   }
 };
 
@@ -698,15 +616,13 @@ async function deleteRecord(id) {
 
 /*
  * 編集画面
- * 日付と時刻を別々の入力欄にして、
- * iPhoneのネイティブ選択機能を使えるようにします。
+ * 観察日と時刻を別々に選択できます。
  */
 async function editRecord(id) {
   const record = records.find(item => String(item.id) === String(id));
 
   if (!record) return;
 
-  // 同時に編集画面が複数作られないようにする
   document.getElementById("observationEditModal")?.remove();
 
   const currentDateTime = dateTimeForInput(record);
@@ -974,8 +890,7 @@ async function editRecord(id) {
       return;
     }
 
-    const dateTimeValue = `${date}T${time}`;
-    const isoDateTime = dateTimeToISO(dateTimeValue);
+    const isoDateTime = dateTimeToISO(`${date}T${time}`);
 
     const updated = {
       name,
