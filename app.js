@@ -16,7 +16,6 @@ function localDateTimeValue(date = new Date()) {
   const day = String(date.getDate()).padStart(2, "0");
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
-
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
@@ -26,31 +25,22 @@ function localDateValue(date = new Date()) {
 
 function dateTimeToISO(value) {
   if (!value) return null;
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) {
     throw new Error("観察日時を正しく選択してください。");
   }
-
   return date.toISOString();
 }
 
 function recordDateTime(record) {
   if (record.observed_at) {
     const date = new Date(record.observed_at);
-
-    if (!Number.isNaN(date.getTime())) {
-      return date;
-    }
+    if (!Number.isNaN(date.getTime())) return date;
   }
 
   if (record.observed_on) {
     const date = new Date(`${record.observed_on}T00:00:00`);
-
-    if (!Number.isNaN(date.getTime())) {
-      return date;
-    }
+    if (!Number.isNaN(date.getTime())) return date;
   }
 
   return null;
@@ -58,7 +48,6 @@ function recordDateTime(record) {
 
 function formatDateTime(record) {
   const date = recordDateTime(record);
-
   if (!date) return "日時未登録";
 
   return new Intl.DateTimeFormat("ja-JP", {
@@ -74,7 +63,6 @@ function formatDateTime(record) {
 
 function dateTimeForInput(record) {
   const date = recordDateTime(record);
-
   if (!date) return "";
 
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -88,11 +76,8 @@ function dateTimeForInput(record) {
   }).formatToParts(date);
 
   const values = {};
-
   for (const part of parts) {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
+    if (part.type !== "literal") values[part.type] = part.value;
   }
 
   return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
@@ -147,7 +132,6 @@ function showApp(logged) {
 
 function openSettings() {
   const s = settings();
-
   $("supabaseUrl").value = s.url || "";
   $("supabaseKey").value = s.key || "";
   $("settingsPanel").hidden = false;
@@ -166,11 +150,7 @@ $("saveSettingsBtn").onclick = async () => {
   const key = $("supabaseKey").value.trim();
 
   if (!url.startsWith("https://") || !key) {
-    return msg(
-      "settingsMsg",
-      "Project URLと公開用キーを入力してください。",
-      true
-    );
+    return msg("settingsMsg", "Project URLと公開用キーを入力してください。", true);
   }
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ url, key }));
@@ -181,11 +161,9 @@ $("saveSettingsBtn").onclick = async () => {
 
   try {
     const { error } = await sb.auth.getSession();
-
     if (error) throw error;
 
     msg("settingsMsg", "設定を保存しました。ログイン画面を開きます。");
-
     setTimeout(() => showApp(!!user), 500);
   } catch (error) {
     msg("settingsMsg", `接続エラー：${error.message}`, true);
@@ -210,7 +188,6 @@ async function init() {
   sb.auth.onAuthStateChange(async (_event, session) => {
     user = session?.user || null;
     showApp(!!user);
-
     if (user) await loadFamily();
   });
 }
@@ -220,11 +197,7 @@ $("signUpBtn").onclick = async () => {
   const password = $("password").value;
 
   if (!email || password.length < 6) {
-    return msg(
-      "authMsg",
-      "メールアドレスと6文字以上のパスワードを入力してください。",
-      true
-    );
+    return msg("authMsg", "メールアドレスと6文字以上のパスワードを入力してください。", true);
   }
 
   const { error } = await sb.auth.signUp({ email, password });
@@ -260,22 +233,14 @@ function resizeImage(file, max = 1400, quality = 0.84) {
     const url = URL.createObjectURL(file);
 
     image.onload = () => {
-      const scale = Math.min(
-        1,
-        max / Math.max(image.width, image.height)
-      );
-
+      const scale = Math.min(1, max / Math.max(image.width, image.height));
       const canvas = document.createElement("canvas");
 
       canvas.width = Math.round(image.width * scale);
       canvas.height = Math.round(image.height * scale);
 
       canvas.getContext("2d").drawImage(
-        image,
-        0,
-        0,
-        canvas.width,
-        canvas.height
+        image, 0, 0, canvas.width, canvas.height
       );
 
       URL.revokeObjectURL(url);
@@ -299,7 +264,6 @@ $("photoInput").onchange = async event => {
 
   try {
     photoData = await resizeImage(photoFile);
-
     $("photoPreview").innerHTML =
       `<img alt="選択した写真" src="${photoData}">`;
   } catch (error) {
@@ -318,21 +282,13 @@ $("recordForm").onsubmit = async event => {
   }
 
   if (!family) {
-    return msg(
-      "saveMsg",
-      "先に家族グループを作成するか、招待コードで参加してください。",
-      true
-    );
+    return msg("saveMsg", "先に家族グループを作成するか、招待コードで参加してください。", true);
   }
 
   const name = $("nameInput").value.trim();
 
   if (!name) {
-    return msg(
-      "saveMsg",
-      "名前を入力してください。未確定なら「未同定の生きもの」でもOKです。",
-      true
-    );
+    return msg("saveMsg", "名前を入力してください。未確定なら「未同定の生きもの」でもOKです。", true);
   }
 
   const observedAt = $("dateInput").value;
@@ -345,20 +301,20 @@ $("recordForm").onsubmit = async event => {
   saveButton.disabled = true;
   msg("saveMsg", "保存しています…");
 
+  let uploadedPath = null;
+
   try {
     let image_path = null;
 
     if (photoFile && photoData) {
       const blob = await (await fetch(photoData)).blob();
 
-      image_path =
-        `${family.id}/${user.id}/${crypto.randomUUID()}.jpg`;
+      image_path = `${family.id}/${user.id}/${crypto.randomUUID()}.jpg`;
+      uploadedPath = image_path;
 
       const { error } = await sb.storage
         .from("observation-photos")
-        .upload(image_path, blob, {
-          contentType: "image/jpeg"
-        });
+        .upload(image_path, blob, { contentType: "image/jpeg" });
 
       if (error) throw error;
     }
@@ -377,20 +333,20 @@ $("recordForm").onsubmit = async event => {
     };
 
     const { error } = await sb.from("observations").insert(row);
-
     if (error) throw error;
 
     $("recordForm").reset();
     $("dateInput").value = localDateTimeValue();
-
     photoFile = null;
     photoData = "";
-
     $("photoPreview").textContent = "📷";
 
     msg("saveMsg", "観察記録を保存しました！");
     await loadRecords();
   } catch (error) {
+    if (uploadedPath) {
+      await sb.storage.from("observation-photos").remove([uploadedPath]);
+    }
     msg("saveMsg", `保存できませんでした：${error.message}`, true);
   } finally {
     saveButton.disabled = false;
@@ -442,11 +398,7 @@ $("createFamilyBtn").onclick = async () => {
     return msg("familyMsg", `作成できませんでした：${error.message}`, true);
   }
 
-  msg(
-    "familyMsg",
-    "家族グループを作成しました。招待コードを家族に共有してください。"
-  );
-
+  msg("familyMsg", "家族グループを作成しました。招待コードを家族に共有してください。");
   await loadFamily();
 };
 
@@ -457,9 +409,7 @@ $("joinFamilyBtn").onclick = async () => {
     return msg("familyMsg", "招待コードを入力してください。", true);
   }
 
-  const { error } = await sb.rpc("join_family", {
-    invite: code
-  });
+  const { error } = await sb.rpc("join_family", { invite: code });
 
   if (error) {
     return msg("familyMsg", `参加できませんでした：${error.message}`, true);
@@ -509,24 +459,17 @@ function renderRecords() {
   const category = $("filterCategory").value;
 
   const shown = records.filter(record => {
-    const matchesCategory =
-      !category || record.category === category;
+    const matchesCategory = !category || record.category === category;
 
     const searchable = [
-      record.name,
-      record.place,
-      record.notes,
-      record.category
+      record.name, record.place, record.notes, record.category
     ].join(" ").toLowerCase();
 
-    return matchesCategory &&
-      (!query || searchable.includes(query));
+    return matchesCategory && (!query || searchable.includes(query));
   });
 
   $("recordCount").textContent = records.length;
-
-  $("speciesCount").textContent =
-    new Set(records.map(record => record.name)).size;
+  $("speciesCount").textContent = new Set(records.map(record => record.name)).size;
 
   const currentMonth = localDateValue().slice(0, 7);
 
@@ -541,7 +484,6 @@ function renderRecords() {
     }).formatToParts(date);
 
     const values = {};
-
     for (const part of parts) {
       if (part.type !== "literal") values[part.type] = part.value;
     }
@@ -576,15 +518,11 @@ function renderRecords() {
     `;
 
     card.querySelector("h3").textContent = record.name;
-
     card.querySelectorAll(".meta")[0].textContent =
       `🕒 ${formatDateTime(record)} · ${record.confirmed ? "種類確認済み" : "未確認"}`;
-
     card.querySelectorAll(".meta")[1].textContent =
       record.place ? `📍 ${record.place}` : "場所未記入";
-
-    card.querySelector(".notes").textContent =
-      record.notes || "備考なし";
+    card.querySelector(".notes").textContent = record.notes || "備考なし";
 
     $("recordsGrid").append(card);
   });
@@ -601,6 +539,8 @@ function renderRecords() {
 async function deleteRecord(id) {
   if (!confirm("この観察記録を削除しますか？")) return;
 
+  const record = records.find(item => String(item.id) === String(id));
+
   const { error } = await sb
     .from("observations")
     .delete()
@@ -609,24 +549,37 @@ async function deleteRecord(id) {
 
   if (error) {
     alert(`削除できません：${error.message}`);
-  } else {
-    await loadRecords();
+    return;
   }
+
+  if (record?.image_path) {
+    const { error: storageError } = await sb.storage
+      .from("observation-photos")
+      .remove([record.image_path]);
+
+    if (storageError) {
+      console.warn("写真ファイルの削除に失敗しました", storageError.message);
+    }
+  }
+
+  await loadRecords();
 }
 
 /*
  * 編集画面
- * 観察日と時刻を別々に選択できます。
+ * 写真の差し替え、観察日・時刻の編集に対応
  */
 async function editRecord(id) {
   const record = records.find(item => String(item.id) === String(id));
-
   if (!record) return;
 
   document.getElementById("observationEditModal")?.remove();
 
   const currentDateTime = dateTimeForInput(record);
   const parts = currentDateTime ? currentDateTime.split("T") : ["", ""];
+
+  let replacementPhotoFile = null;
+  let replacementPhotoData = "";
 
   const modal = document.createElement("div");
   modal.id = "observationEditModal";
@@ -640,6 +593,20 @@ async function editRecord(id) {
       </div>
 
       <form id="observationEditForm">
+        <div class="edit-photo-area">
+          <strong>登録済みの写真</strong>
+          <div id="editPhotoPreview" class="edit-photo-preview"></div>
+
+          <label class="edit-photo-button" for="editPhotoInput">
+            📷 写真を変更する
+          </label>
+          <input id="editPhotoInput" class="edit-photo-input" type="file" accept="image/*">
+
+          <p class="edit-photo-help">
+            写真を選び直さなければ、現在の画像が維持されます。
+          </p>
+        </div>
+
         <label class="edit-label">
           生きものの名前
           <input id="editName" type="text" required maxlength="200">
@@ -810,6 +777,7 @@ async function editRecord(id) {
       #observationEditModal .edit-message {
         color: #b42318;
         font-size: 14px;
+        overflow-wrap: anywhere;
       }
 
       #observationEditModal .edit-actions {
@@ -837,6 +805,57 @@ async function editRecord(id) {
         color: #fff;
       }
 
+      #observationEditModal .edit-photo-area {
+        margin-bottom: 20px;
+        padding: 14px;
+        background: #f4f7f4;
+        border-radius: 12px;
+      }
+
+      #observationEditModal .edit-photo-preview {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100px;
+        margin: 12px 0;
+        border-radius: 10px;
+        background: #e8eee9;
+        overflow: hidden;
+      }
+
+      #observationEditModal .edit-photo-preview img {
+        display: block;
+        max-width: 100%;
+        max-height: 240px;
+        object-fit: contain;
+      }
+
+      #observationEditModal .edit-photo-button {
+        display: block;
+        width: 100%;
+        padding: 13px;
+        text-align: center;
+        border-radius: 10px;
+        background: #2f6b4f;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      #observationEditModal .edit-photo-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #observationEditModal .edit-photo-help {
+        margin: 10px 0 0;
+        font-size: 12px;
+        color: #5d6d61;
+      }
+
       @media (max-width: 380px) {
         #observationEditModal .edit-sheet {
           padding: 15px;
@@ -855,6 +874,7 @@ async function editRecord(id) {
   document.body.append(modal);
 
   $("editName").value = record.name || "";
+
   $("editCategory").value = [
     ...$("editCategory").options
   ].some(option => option.value === record.category)
@@ -866,6 +886,37 @@ async function editRecord(id) {
   $("editPlace").value = record.place || "";
   $("editNotes").value = record.notes || "";
   $("editConfirmed").checked = !!record.confirmed;
+
+  const preview = $("editPhotoPreview");
+
+  if (record.image_url) {
+    preview.innerHTML =
+      `<img src="${escapeHTML(record.image_url)}" alt="現在の観察写真">`;
+  } else {
+    preview.textContent = "写真は登録されていません";
+  }
+
+  $("editPhotoInput").addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    replacementPhotoFile = file;
+    $("editMessage").textContent = "写真を読み込んでいます…";
+
+    try {
+      replacementPhotoData = await resizeImage(file);
+
+      preview.innerHTML =
+        `<img src="${replacementPhotoData}" alt="変更後の写真プレビュー">`;
+
+      $("editMessage").textContent = "新しい写真を選択しました。保存ボタンを押してください。";
+    } catch (error) {
+      replacementPhotoFile = null;
+      replacementPhotoData = "";
+      $("editMessage").textContent = error.message;
+    }
+  });
 
   const closeModal = () => modal.remove();
 
@@ -890,13 +941,11 @@ async function editRecord(id) {
       return;
     }
 
-    const isoDateTime = dateTimeToISO(`${date}T${time}`);
-
     const updated = {
       name,
       category: $("editCategory").value || "その他",
       observed_on: date,
-      observed_at: isoDateTime,
+      observed_at: dateTimeToISO(`${date}T${time}`),
       place: $("editPlace").value.trim(),
       notes: $("editNotes").value.trim(),
       confirmed: $("editConfirmed").checked
@@ -907,19 +956,64 @@ async function editRecord(id) {
     saveButton.textContent = "保存しています…";
     $("editMessage").textContent = "";
 
+    let newImagePath = null;
+
     try {
-      const { error } = await sb
+      /*
+       * 新しい写真が選択されている場合だけアップロードする。
+       */
+      if (replacementPhotoFile && replacementPhotoData) {
+        const blob = await (await fetch(replacementPhotoData)).blob();
+
+        newImagePath =
+          `${family.id}/${user.id}/${crypto.randomUUID()}.jpg`;
+
+        const { error: uploadError } = await sb.storage
+          .from("observation-photos")
+          .upload(newImagePath, blob, {
+            contentType: "image/jpeg"
+          });
+
+        if (uploadError) throw uploadError;
+
+        updated.image_path = newImagePath;
+      }
+
+      const { error: updateError } = await sb
         .from("observations")
         .update(updated)
         .eq("id", id)
         .eq("family_id", family.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      /*
+       * データベースの更新に成功した後で、旧写真を削除する。
+       * 新しい写真がない場合は旧写真を残す。
+       */
+      if (newImagePath && record.image_path) {
+        const { error: removeError } = await sb.storage
+          .from("observation-photos")
+          .remove([record.image_path]);
+
+        if (removeError) {
+          console.warn("旧写真の削除に失敗しました", removeError.message);
+        }
+      }
 
       closeModal();
-      alert("観察記録を更新しました！");
       await loadRecords();
+      alert("観察記録を更新しました！");
     } catch (error) {
+      /*
+       * 更新に失敗した場合、今回アップロードした写真を削除する。
+       */
+      if (newImagePath) {
+        await sb.storage
+          .from("observation-photos")
+          .remove([newImagePath]);
+      }
+
       $("editMessage").textContent =
         `更新できませんでした：${error.message}`;
 
