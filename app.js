@@ -31,7 +31,7 @@ function dateTimeToISO(value) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    throw new Error("観察日時を正しく入力してください。");
+    throw new Error("観察日時を正しく選択してください。");
   }
 
   return date.toISOString();
@@ -97,6 +97,16 @@ function dateTimeForInput(record) {
   }
 
   return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+}
+
+function escapeHTML(value = "") {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
 }
 
 $("dateInput").value = localDateTimeValue();
@@ -629,20 +639,20 @@ function renderRecords() {
     card.className = "card";
 
     const image = record.image_url
-      ? `<img class="cardimg" src="${attr(record.image_url)}" alt="観察写真" loading="lazy">`
+      ? `<img class="cardimg" src="${escapeHTML(record.image_url)}" alt="観察写真" loading="lazy">`
       : `<div class="placeholder">🌿</div>`;
 
     card.innerHTML = `
       ${image}
       <div class="cardbody">
-        <span class="tag">${esc(record.category || "未分類")}</span>
+        <span class="tag">${escapeHTML(record.category || "未分類")}</span>
         <h3></h3>
         <p class="meta"></p>
         <p class="meta"></p>
         <p class="notes"></p>
         <div class="actions">
-          <button type="button" data-edit="${attr(record.id)}">編集</button>
-          <button type="button" data-del="${attr(record.id)}">削除</button>
+          <button type="button" data-edit="${escapeHTML(record.id)}">編集</button>
+          <button type="button" data-del="${escapeHTML(record.id)}">削除</button>
         </div>
       </div>
     `;
@@ -670,20 +680,6 @@ function renderRecords() {
   });
 }
 
-function esc(value = "") {
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
-}
-
-function attr(value = "") {
-  return esc(value);
-}
-
 async function deleteRecord(id) {
   if (!confirm("この観察記録を削除しますか？")) return;
 
@@ -700,89 +696,322 @@ async function deleteRecord(id) {
   }
 }
 
+/*
+ * 編集画面
+ * 日付と時刻を別々の入力欄にして、
+ * iPhoneのネイティブ選択機能を使えるようにします。
+ */
 async function editRecord(id) {
   const record = records.find(item => String(item.id) === String(id));
 
   if (!record) return;
 
-  const name = prompt("生きものの名前", record.name || "");
-  if (name === null) return;
+  // 同時に編集画面が複数作られないようにする
+  document.getElementById("observationEditModal")?.remove();
 
-  if (!name.trim()) {
-    alert("名前を入力してください。");
-    return;
+  const currentDateTime = dateTimeForInput(record);
+  const parts = currentDateTime ? currentDateTime.split("T") : ["", ""];
+
+  const modal = document.createElement("div");
+  modal.id = "observationEditModal";
+
+  modal.innerHTML = `
+    <div class="edit-overlay"></div>
+    <section class="edit-sheet" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="edit-heading">
+        <h2 id="editTitle">観察記録を編集</h2>
+        <button type="button" id="editClose" class="edit-close" aria-label="閉じる">×</button>
+      </div>
+
+      <form id="observationEditForm">
+        <label class="edit-label">
+          生きものの名前
+          <input id="editName" type="text" required maxlength="200">
+        </label>
+
+        <label class="edit-label">
+          分類
+          <select id="editCategory">
+            ${[
+              "未分類", "昆虫", "クモ", "鳥", "哺乳類",
+              "両生類", "爬虫類", "魚", "植物", "菌類", "その他"
+            ].map(value =>
+              `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`
+            ).join("")}
+          </select>
+        </label>
+
+        <div class="edit-datetime">
+          <label class="edit-label">
+            📅 観察日
+            <input id="editDate" type="date" required>
+          </label>
+
+          <label class="edit-label">
+            🕒 観察時刻
+            <input id="editTime" type="time" required>
+          </label>
+        </div>
+
+        <label class="edit-label">
+          観察場所
+          <input id="editPlace" type="text" maxlength="300">
+        </label>
+
+        <label class="edit-label">
+          備考・コメント
+          <textarea id="editNotes" rows="4" maxlength="5000"></textarea>
+        </label>
+
+        <label class="edit-confirmed">
+          <input id="editConfirmed" type="checkbox">
+          自分で種類を確認した
+        </label>
+
+        <p id="editMessage" class="edit-message" aria-live="polite"></p>
+
+        <div class="edit-actions">
+          <button type="button" id="editCancel" class="edit-cancel">キャンセル</button>
+          <button type="submit" id="editSave" class="edit-save">変更を保存</button>
+        </div>
+      </form>
+    </section>
+  `;
+
+  if (!document.getElementById("observationEditStyles")) {
+    const style = document.createElement("style");
+    style.id = "observationEditStyles";
+
+    style.textContent = `
+      #observationEditModal {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        box-sizing: border-box;
+      }
+
+      #observationEditModal * {
+        box-sizing: border-box;
+      }
+
+      #observationEditModal .edit-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, .55);
+      }
+
+      #observationEditModal .edit-sheet {
+        position: relative;
+        z-index: 1;
+        background: #fff;
+        color: #24352b;
+        width: 100%;
+        max-width: 520px;
+        max-height: 90%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, .2);
+      }
+
+      #observationEditModal .edit-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      #observationEditModal .edit-heading h2 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+
+      #observationEditModal .edit-close {
+        border: 0;
+        background: #eef3ef;
+        border-radius: 50%;
+        width: 42px;
+        height: 42px;
+        font-size: 28px;
+        line-height: 1;
+        color: #24352b;
+      }
+
+      #observationEditModal .edit-label {
+        display: block;
+        min-width: 0;
+        margin-bottom: 16px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      #observationEditModal .edit-label input,
+      #observationEditModal .edit-label select,
+      #observationEditModal .edit-label textarea {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-height: 46px;
+        margin-top: 7px;
+        padding: 10px;
+        border: 1px solid #cbd5ce;
+        border-radius: 9px;
+        background: #fff;
+        color: #24352b;
+        font: inherit;
+        font-size: 16px;
+      }
+
+      #observationEditModal .edit-label textarea {
+        resize: vertical;
+      }
+
+      #observationEditModal .edit-datetime {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      #observationEditModal .edit-confirmed {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 6px 0 14px;
+        font-size: 15px;
+      }
+
+      #observationEditModal .edit-confirmed input {
+        width: 22px;
+        height: 22px;
+      }
+
+      #observationEditModal .edit-message {
+        color: #b42318;
+        font-size: 14px;
+      }
+
+      #observationEditModal .edit-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      #observationEditModal .edit-actions button {
+        flex: 1;
+        min-height: 48px;
+        border: 0;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      #observationEditModal .edit-cancel {
+        background: #edf1ee;
+        color: #24352b;
+      }
+
+      #observationEditModal .edit-save {
+        background: #2f6b4f;
+        color: #fff;
+      }
+
+      @media (max-width: 380px) {
+        #observationEditModal .edit-sheet {
+          padding: 15px;
+        }
+
+        #observationEditModal .edit-datetime {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+      }
+    `;
+
+    document.head.append(style);
   }
 
-  const category = prompt(
-    "分類（例：昆虫、植物、鳥、クモ、その他）",
-    record.category || "その他"
-  );
-  if (category === null) return;
+  document.body.append(modal);
 
-  const observedAt = prompt(
-    "観察日時（YYYY-MM-DDTHH:mm形式）",
-    dateTimeForInput(record)
-  );
-  if (observedAt === null) return;
+  $("editName").value = record.name || "";
+  $("editCategory").value = [
+    ...$("editCategory").options
+  ].some(option => option.value === record.category)
+    ? record.category
+    : "その他";
 
-  if (
-    observedAt &&
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(observedAt)
-  ) {
-    alert("観察日時は YYYY-MM-DDTHH:mm の形式で入力してください。");
-    return;
-  }
+  $("editDate").value = parts[0] || localDateValue();
+  $("editTime").value = parts[1] || "12:00";
+  $("editPlace").value = record.place || "";
+  $("editNotes").value = record.notes || "";
+  $("editConfirmed").checked = !!record.confirmed;
 
-  if (observedAt && Number.isNaN(new Date(observedAt).getTime())) {
-    alert("観察日時が正しくありません。");
-    return;
-  }
+  const closeModal = () => modal.remove();
 
-  const place = prompt("観察場所", record.place || "");
-  if (place === null) return;
+  $("editClose").onclick = closeModal;
+  $("editCancel").onclick = closeModal;
+  modal.querySelector(".edit-overlay").onclick = closeModal;
 
-  const notes = prompt("備考・コメント", record.notes || "");
-  if (notes === null) return;
+  $("observationEditForm").onsubmit = async event => {
+    event.preventDefault();
 
-  const confirmed = confirm(
-    "生きものの種類を確認済みにしますか？\n\nOK：確認済み\nキャンセル：未確認"
-  );
+    const name = $("editName").value.trim();
+    const date = $("editDate").value;
+    const time = $("editTime").value;
 
-  const updated = {
-    name: name.trim(),
-    category: category.trim() || "その他",
-    observed_on: observedAt ? observedAt.slice(0, 10) : null,
-    observed_at: observedAt ? dateTimeToISO(observedAt) : null,
-    place: place.trim(),
-    notes: notes.trim(),
-    confirmed
+    if (!name) {
+      $("editMessage").textContent = "生きものの名前を入力してください。";
+      return;
+    }
+
+    if (!date || !time) {
+      $("editMessage").textContent = "観察日と観察時刻を選択してください。";
+      return;
+    }
+
+    const dateTimeValue = `${date}T${time}`;
+    const isoDateTime = dateTimeToISO(dateTimeValue);
+
+    const updated = {
+      name,
+      category: $("editCategory").value || "その他",
+      observed_on: date,
+      observed_at: isoDateTime,
+      place: $("editPlace").value.trim(),
+      notes: $("editNotes").value.trim(),
+      confirmed: $("editConfirmed").checked
+    };
+
+    const saveButton = $("editSave");
+    saveButton.disabled = true;
+    saveButton.textContent = "保存しています…";
+    $("editMessage").textContent = "";
+
+    try {
+      const { error } = await sb
+        .from("observations")
+        .update(updated)
+        .eq("id", id)
+        .eq("family_id", family.id);
+
+      if (error) throw error;
+
+      closeModal();
+      alert("観察記録を更新しました！");
+      await loadRecords();
+    } catch (error) {
+      $("editMessage").textContent =
+        `更新できませんでした：${error.message}`;
+
+      saveButton.disabled = false;
+      saveButton.textContent = "変更を保存";
+    }
   };
-
-  if (!confirm(
-    "次の内容で更新しますか？\n\n" +
-    `名前：${updated.name}\n` +
-    `分類：${updated.category}\n` +
-    `観察日時：${observedAt || "未入力"}\n` +
-    `観察場所：${updated.place || "未入力"}\n` +
-    `備考：${updated.notes || "未入力"}\n` +
-    `種類確認：${updated.confirmed ? "確認済み" : "未確認"}`
-  )) {
-    return;
-  }
-
-  const { error } = await sb
-    .from("observations")
-    .update(updated)
-    .eq("id", id)
-    .eq("family_id", family.id);
-
-  if (error) {
-    alert(`更新できませんでした：${error.message}`);
-    return;
-  }
-
-  alert("観察記録を更新しました！");
-  await loadRecords();
 }
 
 $("searchInput").oninput = renderRecords;
