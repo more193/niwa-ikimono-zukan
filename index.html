@@ -29,7 +29,7 @@
 <div class="heading"><div><p class="eyebrow">FIELD JOURNAL</p><h2>新しい観察を記録</h2></div></div>
 <form id="recordForm" class="panel">
 <label class="photoPick" for="photoInput"><span id="photoPreview" class="preview">📷</span><span><b>生きものの写真を追加</b><small>カメラで撮影、または写真を選択</small></span><span class="plus">＋</span></label>
-<input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
+<input id="photoInput" type="file" accept="image/*" hidden>
 <button type="button" id="identifyBtn" class="btn ai full" disabled>✨ AIに種類を推定してもらう</button><p id="aiMsg" class="msg"></p>
 <div id="candidateBox" class="candidate" hidden><b>AIの推定（必ず確認してください）</b><div id="candidateText"></div><button type="button" id="useCandidateBtn" class="btn secondary">候補を記録欄に反映</button></div>
 <div class="cols"><label>名前（未確定でもOK）<input id="nameInput" placeholder="例：ハエトリグモの仲間" required></label><label>分類<select id="categoryInput"><option>未分類</option><option>昆虫</option><option>クモ</option><option>鳥</option><option>哺乳類</option><option>両生類</option><option>爬虫類</option><option>魚</option><option>植物</option><option>菌類</option><option>その他</option></select></label></div>
